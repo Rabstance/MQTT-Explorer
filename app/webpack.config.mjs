@@ -66,6 +66,9 @@ export default {
           {
             loader: 'ts-loader',
             options: {
+              // Without an explicit config, ts-loader picks the tsconfig nearest to the first compiled file.
+              // When that is a shared file (../events, ../backend) the root tsconfig would be used for the app.
+              configFile: `${__dirname}/tsconfig.json`,
               transpileOnly: true,
               experimentalWatchApi: true,
             },

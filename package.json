@@ -23,7 +23,7 @@
     "test:ui:vnc": "tsc && ./scripts/uiTestsWithVnc.sh",
     "test:mcp": "tsc && node dist/src/spec/testMcpIntrospection.js",
     "install": "(cd app && yarn)",
-    "dev": "npm-run-all --parallel dev:*",
+    "dev": "npm-run-all --parallel dev:app dev:electron",
     "dev:app": "(cd app && npm run dev)",
     "dev:electron": "tsc && electron . --development",
     "dev:server": "npm-run-all --parallel dev:server:*",

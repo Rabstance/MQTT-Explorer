@@ -1,6 +1,6 @@
 {
   "name": "MQTT-Explorer",
-  "version": "0.4.0-beta.5",
+  "version": "0.4.0-sicd.1",
   "description": "Explore your message queues",
   "main": "dist/src/electron.js",
   "engines": {
@@ -53,6 +53,13 @@
   },
   "build": {
     "appId": "mqtt-explorer",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Rabstance",
+        "repo": "MQTT-Explorer"
+      }
+    ],
     "productName": "MQTT Explorer",
     "nodeGypRebuild": false,
     "mac": {

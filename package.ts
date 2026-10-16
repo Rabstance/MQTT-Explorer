@@ -66,6 +66,9 @@ const mac: builder.CliOptions = {
   publish: 'always',
 }
 
+// `yarn package <platform> --local` builds the packages without publishing them and skips the snap store build
+const localBuild = process.argv.includes('--local')
+
 async function executeBuild() {
   switch (process.argv[2]) {
     case 'win':
@@ -77,7 +80,9 @@ async function executeBuild() {
       break
     case 'linux':
       await buildWithOptions(linuxAppImage, { platform: 'linux', package: 'AppImage' })
-      await buildWithOptions(linuxSnap, { platform: 'linux', package: 'snap' })
+      if (!localBuild) {
+        await buildWithOptions(linuxSnap, { platform: 'linux', package: 'snap' })
+      }
       await buildWithOptions(linuxDeb, { platform: 'linux', package: 'deb' })
       break
     case 'mac':
@@ -136,6 +141,7 @@ async function buildWithOptions(options: builder.CliOptions, buildInfo: BuildInf
     fs.writeFileSync(jsonLocation, JSON.stringify(packageJson))
     await builder.build({
       ...options,
+      ...(localBuild ? { publish: 'never' as const } : {}),
       [buildInfo.platform]: [buildInfo.package],
     })
   } catch (error) {

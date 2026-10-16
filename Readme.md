@@ -240,6 +240,18 @@ MQTT Explorer supports mobile devices through its browser mode with responsive d
 
 For the complete mobile compatibility concept, implementation phases, and future roadmap, see [MOBILE_COMPATIBILITY.md](MOBILE_COMPATIBILITY.md).
 
+## Build installers locally
+
+Packages are built from a clean clone of the committed state of the current branch and written to `build/clean/build`.
+
+```bash
+yarn prepare-release
+yarn package win --local     # on Windows: portable .exe and NSIS installer
+yarn package linux --local   # on Linux: AppImage and .deb (x64, armv7l, arm64)
+```
+
+`--local` skips publishing to GitHub and the snap store build.
+
 ## Create a release
 
 Create a PR to `release` branch.

@@ -245,12 +245,14 @@ For the complete mobile compatibility concept, implementation phases, and future
 Packages are built from a clean clone of the committed state of the current branch and written to `build/clean/build`.
 
 ```bash
+yarn build                   # compiles the electron-builder hooks used while packaging
 yarn prepare-release
 yarn package win --local     # on Windows: portable .exe and NSIS installer
 yarn package linux --local   # on Linux: AppImage and .deb (x64, armv7l, arm64)
 ```
 
 `--local` skips publishing to GitHub and the snap store build.
+On Windows, electron-builder extracts an archive containing symbolic links, enable Developer Mode or run the build as administrator.
 
 ## Create a release
 

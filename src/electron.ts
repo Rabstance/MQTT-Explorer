@@ -71,6 +71,22 @@ app.whenReady().then(() => {
       data,
     })
   )
+
+  // Reads all SICD definition files of a folder, Includes are resolved by the renderer
+  backendRpc.on(RpcEvents.readSicdFolder, async ({ folderPath }) => {
+    const entries = await fsPromise.readdir(folderPath, { withFileTypes: true })
+    const sicdFiles = entries
+      .filter(entry => entry.isFile() && /\.json5$/i.test(entry.name))
+      .map(entry => entry.name)
+      .sort()
+
+    return Promise.all(
+      sicdFiles.map(async name => ({
+        name,
+        content: await fsPromise.readFile(path.join(folderPath, name), 'utf8'),
+      }))
+    )
+  })
 })
 
 autoUpdater.logger = log

@@ -4,6 +4,7 @@ import * as connectionManagerActions from './ConnectionManager'
 import * as globalActions from './Global'
 import * as publishActions from './Publish'
 import * as settingsActions from './Settings'
+import * as sicdActions from './Sicd'
 import * as sidebarActions from './Sidebar'
 import * as treeActions from './Tree'
 import * as updateNotifierActions from './UpdateNotifier'
@@ -13,6 +14,7 @@ export {
   treeActions,
   chartActions,
   publishActions,
+  sicdActions,
   updateNotifierActions,
   connectionActions,
   sidebarActions,

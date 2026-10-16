@@ -92,3 +92,8 @@ export const publish = (connectionId: string) => (dispatch: Dispatch<Action>, ge
 export const toggleRetain = (): Action => ({
   type: ActionTypes.PUBLISH_TOGGLE_RETAIN,
 })
+
+export const setRetain = (retain: boolean): Action => ({
+  retain,
+  type: ActionTypes.PUBLISH_SET_RETAIN,
+})

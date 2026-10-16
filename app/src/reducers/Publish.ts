@@ -8,12 +8,13 @@ export interface PublishState {
   qos: 0 | 1 | 2
 }
 
-export type Action = SetPayload | SetTopic | ToggleRetain | SetEditorMode | SetQoS
+export type Action = SetPayload | SetTopic | ToggleRetain | SetRetain | SetEditorMode | SetQoS
 
 export enum ActionTypes {
   PUBLISH_SET_TOPIC = 'PUBLISH_SET_TOPIC',
   PUBLISH_SET_PAYLOAD = 'PUBLISH_SET_PAYLOAD',
   PUBLISH_TOGGLE_RETAIN = 'PUBLISH_TOGGLE_RETAIN',
+  PUBLISH_SET_RETAIN = 'PUBLISH_SET_RETAIN',
   PUBLISH_SET_EDITOR_MODE = 'PUBLISH_SET_EDITOR_MODE',
   PUBLISH_SET_QOS = 'PUBLISH_SET_QOS',
 }
@@ -42,6 +43,11 @@ export interface ToggleRetain {
   type: ActionTypes.PUBLISH_TOGGLE_RETAIN
 }
 
+export interface SetRetain {
+  type: ActionTypes.PUBLISH_SET_RETAIN
+  retain: boolean
+}
+
 const initialState: PublishState = {
   editorMode: 'json',
   retain: false,
@@ -52,6 +58,7 @@ export const publishReducer = createReducer(initialState, {
   PUBLISH_SET_TOPIC: setTopic,
   PUBLISH_SET_PAYLOAD: setPayload,
   PUBLISH_TOGGLE_RETAIN: toggleRetain,
+  PUBLISH_SET_RETAIN: setRetain,
   PUBLISH_SET_EDITOR_MODE: setEditorMode,
   PUBLISH_SET_QOS: setQoS,
 })
@@ -88,5 +95,12 @@ function toggleRetain(state: PublishState) {
   return {
     ...state,
     retain: !state.retain,
+  }
+}
+
+function setRetain(state: PublishState, action: SetRetain) {
+  return {
+    ...state,
+    retain: action.retain,
   }
 }

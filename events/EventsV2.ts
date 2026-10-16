@@ -37,6 +37,7 @@ export const RpcEvents = {
   saveDialog: { topic: 'saveDialog' } as RpcEvent<SaveDialogOptionsV2, SaveDialogReturnValueV2>,
   uploadCertificate: { topic: 'uploadCertificate' } as RpcEvent<CertificateUploadRequest, CertificateUploadResponse>,
   llmChat: { topic: 'llm/chat' } as RpcEvent<LlmChatRequest, LlmChatResponse>,
+  readSicdFolder: { topic: 'sicd/readFolder' } as RpcEvent<SicdFolderRequest, Array<SicdFolderFile>>,
 }
 
 // Type definitions
@@ -74,6 +75,16 @@ export interface LlmChatRequest {
 
 export interface LlmChatResponse {
   response: string
+}
+
+// SICD folder RPC types
+export interface SicdFolderRequest {
+  folderPath: string
+}
+
+export interface SicdFolderFile {
+  name: string
+  content: string
 }
 
 // Dialog types (browser-compatible versions)

@@ -11,6 +11,7 @@ import { usePollingToFetchTreeNode } from '../helper/usePollingToFetchTreeNode'
 import { AppState } from '../../reducers'
 import DetailsTab from './DetailsTab'
 import PublishTab from './PublishTab'
+import SicdTab from './SicdTab'
 
 const throttle = require('lodash.throttle')
 
@@ -57,6 +58,8 @@ function SidebarNew(props: Props) {
     setTabValue(newValue)
   }
 
+  const showPublishTab = useCallback(() => setTabValue(1), [])
+
   // On mobile, don't show tabs (mobile already has Topics/Details tabs at app level)
   // Just show the content directly
   if (isMobile) {
@@ -69,7 +72,7 @@ function SidebarNew(props: Props) {
     )
   }
 
-  // Desktop: show tabs for Details/Publish
+  // Desktop: show tabs for Details/Publish/SICD
   return (
     <div id="Sidebar" className={classes.root}>
       <Box className={classes.tabsContainer}>
@@ -83,6 +86,7 @@ function SidebarNew(props: Props) {
         >
           <Tab label="Details" className={classes.tab} />
           <Tab label="Publish" className={classes.tab} />
+          <Tab label="SICD" className={classes.tab} id="sidebar-tab-sicd" />
         </Tabs>
       </Box>
 
@@ -92,6 +96,9 @@ function SidebarNew(props: Props) {
         </Box>
         <Box sx={{ display: tabValue === 1 ? 'block' : 'none' }}>
           <PublishTab connectionId={props.connectionId} />
+        </Box>
+        <Box sx={{ display: tabValue === 2 ? 'block' : 'none' }}>
+          <SicdTab onMessageSelected={showPublishTab} />
         </Box>
       </Box>
     </div>

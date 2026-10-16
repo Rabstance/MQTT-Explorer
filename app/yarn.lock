@@ -3604,9 +3604,9 @@ json-to-ast@2.1.0:
     code-error-fragment "0.0.230"
     grapheme-splitter "^1.0.4"
 
-json5@^2.1.2:
+json5@2.2.3, json5@^2.1.2:
   version "2.2.3"
-  resolved "https://registry.yarnpkg.com/json5/-/json5-2.2.3.tgz#78cd6f1a19bdc12b73db5ad0c61efd66c1e29283"
+  resolved "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz"
   integrity sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==
 
 jss-plugin-camel-case@^10.10.0:

@@ -5,6 +5,7 @@ import { connectionReducer, ConnectionState } from './Connection'
 import { GlobalState, globalState } from './Global'
 import { publishReducer, PublishState } from './Publish'
 import { settingsReducer, SettingsState } from './Settings'
+import { sicdReducer, SicdState } from './Sicd'
 import { sidebarReducer, SidebarState } from './Sidebar'
 import { treeReducer, TreeState } from './Tree'
 
@@ -13,6 +14,7 @@ export interface AppState {
   tree: TreeState
   settings: SettingsState
   publish: PublishState
+  sicd: SicdState
   charts: ChartsState
   sidebar: SidebarState
   connection: ConnectionState
@@ -23,6 +25,7 @@ export default combineReducers({
   globalState,
   charts: chartsReducer,
   publish: publishReducer,
+  sicd: sicdReducer,
   sidebar: sidebarReducer,
   connection: connectionReducer,
   settings: settingsReducer,

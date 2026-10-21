@@ -74,6 +74,19 @@ function groupMessages(messages: Array<SicdMessage>, filter: string): Array<Elem
   return groups
 }
 
+// Children are indented below the expand icon of their parent with a vertical guide line in its center
+const indentGuideSx = {
+  ml: '13px',
+  borderLeft: 1,
+  borderColor: 'divider',
+}
+
+const chipSx = {
+  height: '20px',
+  fontSize: '0.7rem',
+  ml: 0.5,
+}
+
 function SicdTab(props: Props) {
   const { classes, actions, sicd } = props
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -136,22 +149,35 @@ function SicdTab(props: Props) {
     [actions, onMessageSelected]
   )
 
+  // Styles of MUI components are set with `sx`, withStyles classes lose against the MUI defaults
   const renderMessage = (message: SicdMessage) => (
     <ListItemButton
       key={message.topic}
-      className={classes.message}
+      // Leaves start where the label of a branch would, after the space of the expand icon
+      sx={{ pl: 3.5, pr: 1, py: 0.25 }}
       selected={message.topic === selectedTopic}
       onClick={() => selectMessage(message)}
       data-topic={message.topic}
     >
       <ListItemText
+        sx={{ my: 0.25 }}
         primary={message.name}
         secondary={message.topic}
         primaryTypographyProps={{ variant: 'body2' }}
-        secondaryTypographyProps={{ variant: 'caption', className: classes.topic }}
+        secondaryTypographyProps={{ variant: 'caption', sx: { fontFamily: 'monospace' } }}
       />
-      {message.retain && <Chip label="retained" size="small" variant="outlined" className={classes.chip} />}
-      {message.isDatabaseMsg && <Chip label="DB" size="small" variant="outlined" className={classes.chip} />}
+      {message.retain && <Chip label="retained" size="small" variant="outlined" sx={chipSx} />}
+      {message.isDatabaseMsg && <Chip label="DB" size="small" variant="outlined" sx={chipSx} />}
+    </ListItemButton>
+  )
+
+  const renderBranch = (key: string, label: string, count: number, open: boolean, fontWeight: number) => (
+    <ListItemButton sx={{ pl: 0.5, pr: 1, gap: 0.5 }} onClick={() => toggle(key)} aria-expanded={open} data-node={key}>
+      {open ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+      <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2', sx: { fontWeight } }} />
+      <Typography variant="caption" color="textSecondary">
+        {count}
+      </Typography>
     </ListItemButton>
   )
 
@@ -160,33 +186,27 @@ function SicdTab(props: Props) {
       {groups.map(group => {
         const elementKey = group.element.toLowerCase()
         const elementOpen = isOpen(elementKey, true)
+        const messageCount = group.sections.reduce((sum, section) => sum + section.messages.length, 0)
 
         return (
           <React.Fragment key={elementKey}>
-            <ListItemButton className={classes.treeNode} onClick={() => toggle(elementKey)}>
-              {elementOpen ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
-              <ListItemText primary={group.element} primaryTypographyProps={{ className: classes.elementName }} />
-            </ListItemButton>
+            {renderBranch(elementKey, group.element, messageCount, elementOpen, 600)}
             <Collapse in={elementOpen} unmountOnExit>
-              {group.sections.map(({ section, messages }) => {
-                const sectionKey = `${elementKey}/${section.toLowerCase()}`
-                const sectionOpen = isOpen(sectionKey, false)
+              <Box sx={indentGuideSx}>
+                {group.sections.map(({ section, messages }) => {
+                  const sectionKey = `${elementKey}/${section.toLowerCase()}`
+                  const sectionOpen = isOpen(sectionKey, false)
 
-                return (
-                  <React.Fragment key={sectionKey}>
-                    <ListItemButton className={classes.sectionNode} onClick={() => toggle(sectionKey)}>
-                      {sectionOpen ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
-                      <ListItemText primary={section} primaryTypographyProps={{ variant: 'body2' }} />
-                      <Typography variant="caption" color="textSecondary">
-                        {messages.length}
-                      </Typography>
-                    </ListItemButton>
-                    <Collapse in={sectionOpen} unmountOnExit>
-                      {messages.map(renderMessage)}
-                    </Collapse>
-                  </React.Fragment>
-                )
-              })}
+                  return (
+                    <React.Fragment key={sectionKey}>
+                      {renderBranch(sectionKey, section, messages.length, sectionOpen, 500)}
+                      <Collapse in={sectionOpen} unmountOnExit>
+                        <Box sx={indentGuideSx}>{messages.map(renderMessage)}</Box>
+                      </Collapse>
+                    </React.Fragment>
+                  )
+                })}
+              </Box>
             </Collapse>
           </React.Fragment>
         )
@@ -346,28 +366,6 @@ const styles = (theme: Theme) => ({
     margin: theme.spacing(1, 0, 0, 0),
     paddingLeft: theme.spacing(2),
     wordBreak: 'break-word' as const,
-  },
-  treeNode: {
-    paddingLeft: theme.spacing(0.5),
-    gap: theme.spacing(0.5),
-  },
-  elementName: {
-    fontWeight: 600,
-  },
-  sectionNode: {
-    paddingLeft: theme.spacing(3),
-    gap: theme.spacing(0.5),
-  },
-  message: {
-    paddingLeft: theme.spacing(7.5),
-  },
-  topic: {
-    fontFamily: 'monospace',
-  },
-  chip: {
-    height: '20px',
-    fontSize: '0.7rem',
-    marginLeft: theme.spacing(0.5),
   },
   emptyState: {
     padding: theme.spacing(3, 1),

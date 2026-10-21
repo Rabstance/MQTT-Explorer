@@ -1,0 +1,178 @@
+# Builds the Windows and Linux installers of the SICD fork and publishes them as a GitHub release.
+#
+# Release:  set "version" in package.json to X.Y.Z-sicd.N, commit, then
+#             git tag vX.Y.Z-sicd.N
+#             git push origin HEAD vX.Y.Z-sicd.N
+#           Installed apps find the new release with electron-updater and update themselves.
+#
+# Test run: start the workflow manually in the Actions tab. The installers are attached to the
+#           workflow run as artifacts, no release is created.
+name: SICD release
+
+on:
+  push:
+    tags:
+      - 'v*-sicd.*'
+  workflow_dispatch:
+
+concurrency:
+  group: sicd-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Read version from package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building MQTT Explorer $VERSION"
+
+          # Installed apps only follow releases of their own prerelease channel, X.Y.Z-sicd.N
+          if [[ "$VERSION" != *-sicd.* ]]; then
+            echo "::error::package.json version $VERSION is not a SICD version (X.Y.Z-sicd.N)"
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the package.json version, expected v$VERSION"
+            exit 1
+          fi
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install -g yarn
+      - name: Install packages
+        run: yarn install --frozen-lockfile
+      - name: Build
+        run: yarn build
+      - name: Test
+        run: yarn test
+
+  package:
+    name: Package ${{ matrix.name }}
+    needs: version
+    strategy:
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            platform: win
+            files: |
+              build/clean/build/*.exe
+              build/clean/build/*.blockmap
+              build/clean/build/latest.yml
+          - name: Linux
+            os: ubuntu-latest
+            platform: linux
+            files: |
+              build/clean/build/*.AppImage
+              build/clean/build/*.deb
+              build/clean/build/latest-linux*.yml
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # prepare-release clones this repository, on a branch the clone checks out exactly this commit
+      - name: Create build branch
+        run: git checkout -B sicd-release-build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install -g yarn
+
+      - name: Install packages
+        run: yarn install --frozen-lockfile
+
+      # Compiles the electron-builder hooks that packaging runs from the repository root
+      - name: Build
+        run: yarn build
+
+      - name: Prepare release
+        run: yarn prepare-release
+
+      # prepare-release does not fail when one of its steps fails, check that the app was built
+      - name: Check prepared release
+        shell: bash
+        run: |
+          for file in build/clean/app/build/index.html build/clean/dist/src/electron.js; do
+            if [ ! -f "$file" ]; then
+              echo "::error::$file is missing, prepare-release did not build the app"
+              exit 1
+            fi
+          done
+
+      - name: Package
+        run: yarn package ${{ matrix.platform }} --local
+
+      # GitHub replaces spaces in release asset names, the update files expect dashes
+      - name: Rename installers
+        shell: bash
+        working-directory: build/clean/build
+        run: |
+          for file in *' '*; do
+            if [ -f "$file" ]; then
+              mv "$file" "${file// /-}"
+            fi
+          done
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    if: github.ref_type == 'tag'
+    needs: [version, test, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: installers
+          merge-multiple: true
+
+      # An update file pointing to a missing installer would break auto updates
+      - name: Check update files
+        working-directory: installers
+        run: |
+          ls -la
+          for url in $(grep -h '^  - url:' latest*.yml | awk '{print $3}'); do
+            if [ ! -f "$url" ]; then
+              echo "::error::$url is listed in an update file but is not part of the release"
+              exit 1
+            fi
+          done
+
+      # The release is created with all installers at once, apps never see a partial release
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" installers/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "MQTT Explorer $VERSION" \
+            --generate-notes \
+            --verify-tag

@@ -254,6 +254,20 @@ yarn package linux --local   # on Linux: AppImage and .deb (x64, armv7l, arm64)
 `--local` skips publishing to GitHub and the snap store build.
 On Windows, electron-builder extracts an archive containing symbolic links, enable Developer Mode or run the build as administrator.
 
+## Release the SICD build
+
+Pushing a version tag builds the Windows and Linux installers on GitHub and publishes them as a release of this fork, see `.github/workflows/sicd-release.yml`.
+Installed apps find the release and update themselves.
+
+```bash
+# set "version" in package.json to the next X.Y.Z-sicd.N and commit it, then
+git tag v0.4.0-sicd.3
+git push origin HEAD v0.4.0-sicd.3   # pushes the current branch and the tag
+```
+
+The version must keep the `-sicd.N` suffix, installed apps only update to releases of that channel.
+Starting the workflow manually in the Actions tab builds the installers without releasing them, they are attached to the workflow run.
+
 ## Create a release
 
 Create a PR to `release` branch.

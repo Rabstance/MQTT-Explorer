@@ -21,15 +21,6 @@ const linuxSnap: builder.CliOptions = {
   publish: 'always',
 }
 
-const linuxDeb: builder.CliOptions = {
-  x64: true,
-  ia32: false,
-  armv7l: true,
-  arm64: true,
-  projectDir: './build/clean',
-  publish: 'always',
-}
-
 const winPortable: builder.CliOptions = {
   x64: true,
   ia32: false,
@@ -79,11 +70,13 @@ async function executeBuild() {
       await buildWithOptions(winAppx, { platform: 'win', package: 'appx' })
       break
     case 'linux':
-      await buildWithOptions(linuxAppImage, { platform: 'linux', package: 'AppImage' })
+      // AppImage and deb are built together, so both are listed in the same latest-linux*.yml update files.
+      // Built one after another, the deb build replaced those files and AppImages could not find their updates.
+      // Both packages are auto updated, so they can share the build options of the AppImage.
+      await buildWithOptions(linuxAppImage, { platform: 'linux', package: 'AppImage' }, ['AppImage', 'deb'])
       if (!localBuild) {
         await buildWithOptions(linuxSnap, { platform: 'linux', package: 'snap' })
       }
-      await buildWithOptions(linuxDeb, { platform: 'linux', package: 'deb' })
       break
     case 'mac':
       await buildWithOptions(mac, { platform: 'mac', package: 'dmg' })
@@ -102,7 +95,11 @@ export interface BuildInfo {
 
 type Packages = 'portable' | 'nsis' | 'appx' | 'AppImage' | 'snap' | 'dmg' | 'zip' | 'mas' | 'mas-dev' | 'deb'
 
-async function buildWithOptions(options: builder.CliOptions, buildInfo: BuildInfo) {
+async function buildWithOptions(
+  options: builder.CliOptions,
+  buildInfo: BuildInfo,
+  targets: Array<Packages> = [buildInfo.package]
+) {
   fs.writeFileSync(path.join(options.projectDir!, 'buildOptions.json'), JSON.stringify(buildInfo))
 
   const jsonLocation = path.join(options.projectDir as string, 'package.json')
@@ -142,7 +139,7 @@ async function buildWithOptions(options: builder.CliOptions, buildInfo: BuildInf
     await builder.build({
       ...options,
       ...(localBuild ? { publish: 'never' as const } : {}),
-      [buildInfo.platform]: [buildInfo.package],
+      [buildInfo.platform]: targets,
     })
   } catch (error) {
     throw error

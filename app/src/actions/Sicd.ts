@@ -6,7 +6,7 @@ import { RpcEvents, rendererRpc } from '../eventBus'
 import persistentStorage, { StorageIdentifier } from '../utils/PersistentStorage'
 import { isBrowserMode } from '../utils/browserMode'
 import { loadSicdFiles } from '../sicd/loadSicd'
-import { SicdMessage, SicdSourceFile } from '../sicd/types'
+import { SicdMessage, SicdSourceFile, SicdStructInfo } from '../sicd/types'
 import { setEditorMode, setPayload, setRetain, setTopic } from './Publish'
 import { showError } from './Global'
 
@@ -21,13 +21,15 @@ const sicdIdentifier: StorageIdentifier<StoredSicd> = {
 }
 
 function didLoadSources(sources: Array<SicdSourceFile>, folderPath?: string): Action {
-  const { messages, warnings } = loadSicdFiles(sources)
+  const { messages, enums, structs, warnings } = loadSicdFiles(sources)
 
   return {
     type: ActionTypes.SICD_DID_LOAD,
     folderPath,
     files: sources.map(source => source.name),
     messages,
+    enums,
+    structs,
     warnings,
   }
 }
@@ -117,4 +119,12 @@ export const selectSicdMessage = (message: SicdMessage) => (dispatch: Dispatch<a
   dispatch(setEditorMode('json'))
   dispatch(setPayload(message.payload))
   dispatch(setRetain(message.retain))
+}
+
+/**
+ * Populates the publish payload with the template of a struct, structs have no topic so it is kept as it is
+ */
+export const loadSicdStruct = (struct: SicdStructInfo) => (dispatch: Dispatch<any>) => {
+  dispatch(setEditorMode('json'))
+  dispatch(setPayload(struct.payload))
 }

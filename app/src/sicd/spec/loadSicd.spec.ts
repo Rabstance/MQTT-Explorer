@@ -219,3 +219,97 @@ describe('loadSicdFiles', () => {
     expect(state.Receivers).to.deep.eq(['TRUE'])
   })
 })
+
+describe('loadSicdFiles definitions', () => {
+  it('lists all enums with their values, type and file', () => {
+    const { enums } = load(typesFile, messageFile)
+
+    expect(enums.map(e => e.id)).to.deep.eq(['E_MESSAGE_STATUS', 'E_ELEMENT_STATE', 'E_BOOL'])
+    expect(enums[1]).to.deep.eq({
+      id: 'E_ELEMENT_STATE',
+      name: 'E_ELEMENT_STATE',
+      type: undefined,
+      comment: undefined,
+      values: [
+        { name: 'OFFLINE', value: 0 },
+        { name: 'OPERATIONAL', value: 2 },
+      ],
+      files: ['common_types.json5'],
+    })
+  })
+
+  it('lists all structs with resolved field types and all field attributes', () => {
+    const state = load(typesFile, messageFile).structs.find(s => s.id === 'sSTATE')!
+
+    expect(state.files).to.deep.eq(['common_types.json5'])
+    expect(state.fields.map(f => [f.name, f.kind, f.ref])).to.deep.eq([
+      ['Element', 'enum', 'E_ELEMENT_STATE'],
+      ['Overload', 'enum', 'E_BOOL'],
+      ['Title', 'primitive', undefined],
+      ['Points', 'struct', 'sPOINT'],
+      ['Receivers', 'enum', 'E_BOOL'],
+    ])
+    expect(state.fields[2]).to.deep.include({ type: 'CH', maxCount: 16, default: 'radar' })
+  })
+
+  it('generates a payload template for every struct', () => {
+    const point = load(typesFile, messageFile).structs.find(s => s.id === 'sPOINT')!
+
+    expect(JSON.parse(point.payload)).to.deep.eq({ RangeM: 1.5, AzimuthDeg: 0 })
+  })
+
+  it('keeps min, max and comments of fields', () => {
+    const withRange = {
+      ...typesFile,
+      content: typesFile.content.replace(
+        "RangeM: { Type: 'F4', Default: 1.5 }",
+        "RangeM: { Type: 'F4', Default: 1.5, Min: 0, Max: 100000, Comment: 'Radar relative range' }"
+      ),
+    }
+    const point = load(withRange).structs.find(s => s.id === 'sPOINT')!
+
+    expect(point.fields[0]).to.deep.eq({
+      name: 'RangeM',
+      type: 'F4',
+      kind: 'primitive',
+      maxCount: undefined,
+      min: 0,
+      max: 100000,
+      default: 1.5,
+      comment: 'Radar relative range',
+    })
+  })
+
+  it('merges identical definitions from several files', () => {
+    const copy = { ...typesFile, name: 'copy_types.json5' }
+    const { enums, structs } = load(typesFile, copy)
+
+    expect(enums.length).to.eq(3)
+    expect(structs.find(s => s.id === 'sSTATE')!.files).to.deep.eq(['common_types.json5', 'copy_types.json5'])
+  })
+
+  it('tells differing definitions with the same name apart by file', () => {
+    const other: SicdSourceFile = {
+      name: 'other_types.json5',
+      content: "{ Enums: [{ Name: 'E_BOOL', Type: 'U1', Enum: { NO: 0, YES: 1 } }] }",
+    }
+    const { enums } = load(typesFile, other)
+
+    expect(enums.filter(e => e.name === 'E_BOOL').map(e => e.id)).to.deep.eq([
+      'E_BOOL (common_types.json5)',
+      'E_BOOL (other_types.json5)',
+    ])
+    const state = load(typesFile, other).structs.find(s => s.id === 'sSTATE')!
+    expect(state.fields[1].ref).to.eq('E_BOOL (common_types.json5)')
+  })
+
+  it('marks field types that can not be resolved', () => {
+    const broken = { ...typesFile, content: typesFile.content.replace("Type: 'sPOINT'", "Type: 'sMISSING'") }
+    const { structs, warnings } = load(broken)
+    const points = structs.find(s => s.id === 'sSTATE')!.fields.find(f => f.name === 'Points')!
+
+    expect(points.kind).to.eq('unknown')
+    expect(points.ref).to.eq(undefined)
+    expect(warnings).to.include("common_types.json5: sSTATE.Points: unknown type 'sMISSING'")
+  })
+})

@@ -1,10 +1,12 @@
 import { createReducer } from './lib'
-import { SicdMessage } from '../sicd/types'
+import { SicdEnumInfo, SicdMessage, SicdStructInfo } from '../sicd/types'
 
 export interface SicdState {
   folderPath?: string
   files: Array<string>
   messages: Array<SicdMessage>
+  enums: Array<SicdEnumInfo>
+  structs: Array<SicdStructInfo>
   warnings: Array<string>
   loading: boolean
   /** The persisted folder has been restored, happens once per session */
@@ -29,6 +31,8 @@ export interface DidLoad {
   folderPath?: string
   files: Array<string>
   messages: Array<SicdMessage>
+  enums: Array<SicdEnumInfo>
+  structs: Array<SicdStructInfo>
   warnings: Array<string>
 }
 
@@ -39,6 +43,8 @@ export interface DidRestore {
 const initialState: SicdState = {
   files: [],
   messages: [],
+  enums: [],
+  structs: [],
   warnings: [],
   loading: false,
   restored: false,
@@ -63,6 +69,8 @@ function didLoad(state: SicdState, action: DidLoad): SicdState {
     folderPath: action.folderPath,
     files: action.files,
     messages: action.messages,
+    enums: action.enums,
+    structs: action.structs,
     warnings: action.warnings,
     loading: false,
   }

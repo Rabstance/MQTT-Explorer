@@ -98,7 +98,7 @@ function SidebarNew(props: Props) {
           <PublishTab connectionId={props.connectionId} />
         </Box>
         <Box sx={{ display: tabValue === 2 ? 'block' : 'none' }}>
-          <SicdTab onMessageSelected={showPublishTab} />
+          <SicdTab onLoadedIntoPublish={showPublishTab} />
         </Box>
       </Box>
     </div>

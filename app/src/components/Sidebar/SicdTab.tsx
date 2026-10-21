@@ -2,14 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
-  Chip,
   Collapse,
   IconButton,
   InputAdornment,
   LinearProgress,
-  List,
-  ListItemButton,
-  ListItemText,
   TextField,
   Tooltip,
   Typography,
@@ -18,8 +14,6 @@ import { Theme } from '@mui/material/styles'
 import { withStyles } from '@mui/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import ChevronRight from '@mui/icons-material/ChevronRight'
-import ExpandMore from '@mui/icons-material/ExpandMore'
 import FolderOpen from '@mui/icons-material/FolderOpen'
 import Refresh from '@mui/icons-material/Refresh'
 import Search from '@mui/icons-material/Search'
@@ -27,68 +21,52 @@ import { AppState } from '../../reducers'
 import { SicdState } from '../../reducers/Sicd'
 import { sicdActions } from '../../actions'
 import { isBrowserMode } from '../../utils/browserMode'
-import { SICD_SECTIONS, SicdMessage, SicdSection } from '../../sicd/types'
+import { SicdEnumInfo, SicdMessage, SicdStructInfo } from '../../sicd/types'
+import { EnumList } from './Sicd/EnumList'
+import { MessageTree, groupMessages } from './Sicd/MessageTree'
+import { StructList } from './Sicd/StructList'
+import { TreeBranch } from './Sicd/TreeBranch'
+import { Expansion, SicdDefinitions, indentGuideSx } from './Sicd/tree'
 
 interface Props {
   sicd: SicdState
   actions: typeof sicdActions
   classes: any
-  /** Called after a message has been loaded into the publish section */
-  onMessageSelected?: () => void
+  /** Called after a message or struct has been loaded into the publish section */
+  onLoadedIntoPublish?: () => void
 }
 
-interface ElementGroup {
-  element: string
-  sections: Array<{ section: SicdSection; messages: Array<SicdMessage> }>
+const groupLabelSx = {
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  color: 'text.secondary',
 }
 
-function groupMessages(messages: Array<SicdMessage>, filter: string): Array<ElementGroup> {
-  const elements = new Map<string, ElementGroup>()
-
-  for (const message of messages) {
-    if (filter && !message.topic.includes(filter)) {
-      continue
-    }
-
-    const elementKey = message.element.toLowerCase()
-    let group = elements.get(elementKey)
-    if (!group) {
-      group = { element: message.element, sections: [] }
-      elements.set(elementKey, group)
-    }
-
-    let section = group.sections.find(s => s.section === message.section)
-    if (!section) {
-      section = { section: message.section, messages: [] }
-      group.sections.push(section)
-    }
-    section.messages.push(message)
-  }
-
-  const groups = Array.from(elements.values()).sort((a, b) => a.element.localeCompare(b.element))
-  for (const group of groups) {
-    group.sections.sort((a, b) => SICD_SECTIONS.indexOf(a.section) - SICD_SECTIONS.indexOf(b.section))
-    group.sections.forEach(s => s.messages.sort((a, b) => a.name.localeCompare(b.name)))
-  }
-
-  return groups
+function byName<T extends { id: string }>(a: T, b: T) {
+  return a.id.localeCompare(b.id, undefined, { sensitivity: 'base' })
 }
 
-// Children are indented below the expand icon of their parent with a vertical guide line in its center
-const indentGuideSx = {
-  ml: '13px',
-  borderLeft: 1,
-  borderColor: 'divider',
+// Structs match by their name or a field name, enums by their name or a value name
+function matchingStructs(structs: Array<SicdStructInfo>, filter: string) {
+  return structs
+    .filter(
+      s => !filter || s.id.toLowerCase().includes(filter) || s.fields.some(f => f.name.toLowerCase().includes(filter))
+    )
+    .sort(byName)
 }
 
-const chipSx = {
-  height: '20px',
-  fontSize: '0.7rem',
-  ml: 0.5,
+function matchingEnums(enums: Array<SicdEnumInfo>, filter: string) {
+  return enums
+    .filter(
+      e => !filter || e.id.toLowerCase().includes(filter) || e.values.some(v => v.name.toLowerCase().includes(filter))
+    )
+    .sort(byName)
 }
 
 function SicdTab(props: Props) {
-  const { classes, actions, sicd } = props
+  const { classes, actions, sicd, onLoadedIntoPublish } = props
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [filter, setFilter] = useState('')
   const [toggled, setToggled] = useState<Set<string>>(new Set())
@@ -100,11 +78,16 @@ function SicdTab(props: Props) {
   }, [])
 
   const filterText = filter.trim().toLowerCase()
-  const groups = useMemo(() => groupMessages(sicd.messages, filterText), [sicd.messages, filterText])
-
-  // Elements are expanded and sections collapsed by default, everything is expanded while filtering
-  const isOpen = (key: string, defaultOpen: boolean) =>
-    Boolean(filterText) || (toggled.has(key) ? !defaultOpen : defaultOpen)
+  const messageGroups = useMemo(() => groupMessages(sicd.messages, filterText), [sicd.messages, filterText])
+  const structs = useMemo(() => matchingStructs(sicd.structs, filterText), [sicd.structs, filterText])
+  const enums = useMemo(() => matchingEnums(sicd.enums, filterText), [sicd.enums, filterText])
+  const definitions: SicdDefinitions = useMemo(
+    () => ({
+      structs: new Map(sicd.structs.map(s => [s.id, s])),
+      enums: new Map(sicd.enums.map(e => [e.id, e])),
+    }),
+    [sicd.structs, sicd.enums]
+  )
 
   const toggle = useCallback((key: string) => {
     setToggled(previous => {
@@ -117,6 +100,15 @@ function SicdTab(props: Props) {
       return next
     })
   }, [])
+
+  const expansion: Expansion = useMemo(
+    () => ({
+      isOpen: (key, defaultOpen, followsFilter = true) =>
+        (followsFilter && Boolean(filterText)) || (toggled.has(key) ? !defaultOpen : defaultOpen),
+      toggle,
+    }),
+    [toggled, filterText, toggle]
+  )
 
   const chooseFolder = useCallback(() => {
     if (isBrowserMode) {
@@ -139,80 +131,51 @@ function SicdTab(props: Props) {
     [actions]
   )
 
-  const { onMessageSelected } = props
   const selectMessage = useCallback(
     (message: SicdMessage) => {
       actions.selectSicdMessage(message)
       setSelectedTopic(message.topic)
-      onMessageSelected?.()
+      onLoadedIntoPublish?.()
     },
-    [actions, onMessageSelected]
+    [actions, onLoadedIntoPublish]
   )
 
-  // Styles of MUI components are set with `sx`, withStyles classes lose against the MUI defaults
-  const renderMessage = (message: SicdMessage) => (
-    <ListItemButton
-      key={message.topic}
-      // Leaves start where the label of a branch would, after the space of the expand icon
-      sx={{ pl: 3.5, pr: 1, py: 0.25 }}
-      selected={message.topic === selectedTopic}
-      onClick={() => selectMessage(message)}
-      data-topic={message.topic}
-    >
-      <ListItemText
-        sx={{ my: 0.25 }}
-        primary={message.name}
-        secondary={message.topic}
-        primaryTypographyProps={{ variant: 'body2' }}
-        secondaryTypographyProps={{ variant: 'caption', sx: { fontFamily: 'monospace' } }}
-      />
-      {message.retain && <Chip label="retained" size="small" variant="outlined" sx={chipSx} />}
-      {message.isDatabaseMsg && <Chip label="DB" size="small" variant="outlined" sx={chipSx} />}
-    </ListItemButton>
+  const loadStruct = useCallback(
+    (struct: SicdStructInfo) => {
+      actions.loadSicdStruct(struct)
+      onLoadedIntoPublish?.()
+    },
+    [actions, onLoadedIntoPublish]
   )
 
-  const renderBranch = (key: string, label: string, count: number, open: boolean, fontWeight: number) => (
-    <ListItemButton sx={{ pl: 0.5, pr: 1, gap: 0.5 }} onClick={() => toggle(key)} aria-expanded={open} data-node={key}>
-      {open ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
-      <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2', sx: { fontWeight } }} />
-      <Typography variant="caption" color="textSecondary">
-        {count}
-      </Typography>
-    </ListItemButton>
+  const messageCount = messageGroups.reduce(
+    (sum, group) => sum + group.sections.reduce((sectionSum, section) => sectionSum + section.messages.length, 0),
+    0
   )
 
-  const renderTree = () => (
-    <List dense disablePadding id="sicd-message-tree">
-      {groups.map(group => {
-        const elementKey = group.element.toLowerCase()
-        const elementOpen = isOpen(elementKey, true)
-        const messageCount = group.sections.reduce((sum, section) => sum + section.messages.length, 0)
+  // Messages, structs and enums are top level groups, groups without a match are hidden while filtering
+  const renderGroup = (
+    name: string,
+    label: string,
+    count: number,
+    defaultOpen: boolean,
+    content: () => React.ReactNode
+  ) => {
+    if (count === 0) {
+      return null
+    }
+    const key = `group:${name}`
+    const open = expansion.isOpen(key, defaultOpen)
 
-        return (
-          <React.Fragment key={elementKey}>
-            {renderBranch(elementKey, group.element, messageCount, elementOpen, 600)}
-            <Collapse in={elementOpen} unmountOnExit>
-              <Box sx={indentGuideSx}>
-                {group.sections.map(({ section, messages }) => {
-                  const sectionKey = `${elementKey}/${section.toLowerCase()}`
-                  const sectionOpen = isOpen(sectionKey, false)
-
-                  return (
-                    <React.Fragment key={sectionKey}>
-                      {renderBranch(sectionKey, section, messages.length, sectionOpen, 500)}
-                      <Collapse in={sectionOpen} unmountOnExit>
-                        <Box sx={indentGuideSx}>{messages.map(renderMessage)}</Box>
-                      </Collapse>
-                    </React.Fragment>
-                  )
-                })}
-              </Box>
-            </Collapse>
-          </React.Fragment>
-        )
-      })}
-    </List>
-  )
+    return (
+      <Box key={name} id={`sicd-group-${name}`} sx={{ borderTop: 1, borderColor: 'divider' }}>
+        <TreeBranch nodeKey={key} label={label} count={count} open={open} onToggle={toggle} labelSx={groupLabelSx} />
+        <Collapse in={open} unmountOnExit>
+          <Box sx={indentGuideSx}>{content()}</Box>
+        </Collapse>
+      </Box>
+    )
+  }
 
   const renderEmptyState = () => {
     let text: string | undefined
@@ -220,10 +183,10 @@ function SicdTab(props: Props) {
       text = undefined
     } else if (sicd.files.length === 0 && !sicd.folderPath) {
       text = 'Choose the folder containing your SICD *.json5 files.'
-    } else if (sicd.messages.length === 0) {
-      text = `No messages found in ${sicd.files.length} SICD file(s).`
-    } else if (groups.length === 0) {
-      text = `No messages match "${filter}".`
+    } else if (sicd.messages.length + sicd.structs.length + sicd.enums.length === 0) {
+      text = `No definitions found in ${sicd.files.length} SICD file(s).`
+    } else if (messageCount + structs.length + enums.length === 0) {
+      text = `Nothing matches "${filter}".`
     }
 
     return text ? (
@@ -233,14 +196,16 @@ function SicdTab(props: Props) {
     ) : null
   }
 
+  const hasDefinitions = sicd.messages.length + sicd.structs.length + sicd.enums.length > 0
+
   return (
     <Box className={classes.root}>
       <Box>
         <Typography variant="subtitle2" className={classes.title}>
-          SICD Messages
+          SICD
         </Typography>
         <Typography variant="caption" color="textSecondary">
-          Select a message to load its topic and payload into Publish
+          Select a message or struct to load it into Publish
         </Typography>
       </Box>
 
@@ -305,10 +270,10 @@ function SicdTab(props: Props) {
         </Alert>
       )}
 
-      {sicd.messages.length > 0 && (
+      {hasDefinitions && (
         <TextField
           size="small"
-          placeholder="Filter messages"
+          placeholder="Filter messages, structs, enums and values"
           value={filter}
           onChange={e => setFilter(e.target.value)}
           id="sicd-filter"
@@ -322,7 +287,24 @@ function SicdTab(props: Props) {
         />
       )}
 
-      {renderTree()}
+      {hasDefinitions && (
+        <Box>
+          {renderGroup('messages', 'Messages', messageCount, true, () => (
+            <MessageTree
+              groups={messageGroups}
+              selectedTopic={selectedTopic}
+              onSelect={selectMessage}
+              expansion={expansion}
+            />
+          ))}
+          {renderGroup('structs', 'Structs', structs.length, false, () => (
+            <StructList structs={structs} definitions={definitions} expansion={expansion} onLoad={loadStruct} />
+          ))}
+          {renderGroup('enums', 'Enums', enums.length, false, () => (
+            <EnumList enums={enums} expansion={expansion} />
+          ))}
+        </Box>
+      )}
       {renderEmptyState()}
     </Box>
   )

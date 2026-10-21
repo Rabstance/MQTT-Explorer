@@ -3,13 +3,16 @@ import {
   SICD_SECTIONS,
   SicdDocument,
   SicdEnum,
+  SicdEnumInfo,
   SicdField,
+  SicdFieldInfo,
   SicdFields,
   SicdLoadResult,
   SicdMessage,
   SicdSection,
   SicdSourceFile,
   SicdStruct,
+  SicdStructInfo,
 } from './types'
 
 const NUMERIC_TYPES = new Set(['U1', 'U2', 'U4', 'U8', 'I1', 'I2', 'I4', 'I8', 'F4', 'F8'])
@@ -38,6 +41,16 @@ export function loadSicdFiles(sources: Array<SicdSourceFile>): SicdLoadResult {
     }
   }
 
+  const scopes = new Map<string, Scope>()
+  const scopeOf = (file: string) => {
+    let scope = scopes.get(file)
+    if (!scope) {
+      scope = buildScope(file, documents, warnings)
+      scopes.set(file, scope)
+    }
+    return scope
+  }
+
   const messages: Array<SicdMessage> = []
   const topics = new Set<string>()
 
@@ -52,7 +65,7 @@ export function loadSicdFiles(sources: Array<SicdSourceFile>): SicdLoadResult {
       continue
     }
 
-    const scope = buildScope(file, documents, warnings)
+    const scope = scopeOf(file)
 
     for (const definition of document.Messages) {
       for (const key of Object.keys(definition)) {
@@ -90,7 +103,112 @@ export function loadSicdFiles(sources: Array<SicdSourceFile>): SicdLoadResult {
     }
   }
 
-  return { messages, warnings: Array.from(new Set(warnings)) }
+  const enumCatalog = buildCatalog(documents, document => document.Enums)
+  const structCatalog = buildCatalog(documents, document => document.Structs)
+
+  const enums: Array<SicdEnumInfo> = Array.from(enumCatalog.values()).map(({ id, definition, files }) => ({
+    id,
+    name: definition.Name,
+    type: definition.Type,
+    comment: definition.Comment,
+    values: Object.entries(definition.Enum ?? {}).map(([name, value]) => ({ name, value })),
+    files,
+  }))
+
+  const structs: Array<SicdStructInfo> = Array.from(structCatalog.values()).map(({ id, definition, files }) => {
+    // Field types are resolved where the struct is defined
+    const scope = scopeOf(files[0])
+    const fields = definition.Struct ?? {}
+    const template = buildTemplate(fields, scope, `${files[0]}: ${definition.Name}`, warnings, 0)
+
+    return {
+      id,
+      name: definition.Name,
+      comment: definition.Comment,
+      fields: Object.entries(fields).map(([name, field]) => fieldInfo(name, field, scope, enumCatalog, structCatalog)),
+      files,
+      payload: JSON.stringify(template, undefined, 2),
+    }
+  })
+
+  return { messages, enums, structs, warnings: Array.from(new Set(warnings)) }
+}
+
+interface CatalogEntry<T> {
+  id: string
+  definition: T
+  files: Array<string>
+}
+
+type Catalog<T> = Map<string, CatalogEntry<T>>
+
+function definitionKey(definition: { Name: string }) {
+  return JSON.stringify(definition)
+}
+
+/**
+ * Collects the definitions of all files. Identical definitions in several files become one entry,
+ * differing definitions sharing a name get the file of their first definition added to the id.
+ */
+function buildCatalog<T extends { Name: string }>(
+  documents: Map<string, SicdDocument>,
+  definitionsOf: (document: SicdDocument) => Array<T> | undefined
+): Catalog<T> {
+  const catalog: Catalog<T> = new Map()
+  for (const [file, document] of documents) {
+    for (const definition of definitionsOf(document) ?? []) {
+      const key = definitionKey(definition)
+      const entry = catalog.get(key)
+      if (entry) {
+        entry.files.push(file)
+      } else {
+        catalog.set(key, { id: definition.Name, definition, files: [file] })
+      }
+    }
+  }
+
+  const names = Array.from(catalog.values(), entry => entry.definition.Name)
+  const isShared = (name: string) => names.indexOf(name) !== names.lastIndexOf(name)
+
+  return new Map(
+    Array.from(catalog, ([key, entry]) => {
+      const { Name: name } = entry.definition
+      return [key, isShared(name) ? { ...entry, id: `${name} (${entry.files[0]})` } : entry]
+    })
+  )
+}
+
+function fieldInfo(
+  name: string,
+  field: SicdField,
+  scope: Scope,
+  enumCatalog: Catalog<SicdEnum>,
+  structCatalog: Catalog<SicdStruct>
+): SicdFieldInfo {
+  const info: SicdFieldInfo = {
+    name,
+    type: field.Type,
+    kind: 'unknown',
+    maxCount: field.MaxCount,
+    min: field.Min,
+    max: field.Max,
+    default: field.Default,
+    comment: field.Comment,
+  }
+
+  const enumDefinition = scope.enums.get(field.Type)
+  const structDefinition = scope.structs.get(field.Type)
+  if (field.Type === 'CH' || NUMERIC_TYPES.has(field.Type)) {
+    info.kind = 'primitive'
+  } else if (enumDefinition) {
+    info.kind = 'enum'
+    info.ref = enumCatalog.get(definitionKey(enumDefinition))?.id
+  } else if (structDefinition) {
+    info.kind = 'struct'
+    info.ref = structCatalog.get(definitionKey(structDefinition))?.id
+  }
+
+  return info
 }
 
 function buildScope(file: string, documents: Map<string, SicdDocument>, warnings: Array<string>): Scope {

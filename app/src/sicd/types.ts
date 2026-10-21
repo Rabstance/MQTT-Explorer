@@ -82,7 +82,51 @@ export interface SicdMessage {
   file: string
 }
 
+export type SicdFieldKind = 'primitive' | 'enum' | 'struct' | 'unknown'
+
+/**
+ * A field of a struct with its type resolved in the scope of the defining file
+ */
+export interface SicdFieldInfo {
+  name: string
+  type: string
+  kind: SicdFieldKind
+  /** Id of the enum or struct the type refers to */
+  ref?: string
+  maxCount?: number | string
+  min?: number
+  max?: number
+  default?: unknown
+  comment?: string
+}
+
+export interface SicdEnumInfo {
+  /** The name, unless differing definitions share it, then the name and file */
+  id: string
+  name: string
+  /** Underlying type such as U1 or U4, not set for plain enums */
+  type?: string
+  comment?: string
+  values: Array<{ name: string; value: number }>
+  /** Identical definitions in several files are listed once */
+  files: Array<string>
+}
+
+export interface SicdStructInfo {
+  /** The name, unless differing definitions share it, then the name and file */
+  id: string
+  name: string
+  comment?: string
+  fields: Array<SicdFieldInfo>
+  /** Identical definitions in several files are listed once */
+  files: Array<string>
+  /** JSON template filled with default values */
+  payload: string
+}
+
 export interface SicdLoadResult {
   messages: Array<SicdMessage>
+  enums: Array<SicdEnumInfo>
+  structs: Array<SicdStructInfo>
   warnings: Array<string>
 }

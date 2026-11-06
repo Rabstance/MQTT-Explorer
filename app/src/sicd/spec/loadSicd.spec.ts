@@ -11,26 +11,26 @@ const typesFile: SicdSourceFile = {
     Includes: [],
     Constants: [],
     Enums: [
-      { Name: 'E_MESSAGE_STATUS', Enum: { SUCCESS: 0, FAILED: 1 } },
-      { Name: 'E_ELEMENT_STATE', Enum: { OFFLINE: 0, OPERATIONAL: 2 } },
-      { Name: 'E_BOOL', Enum: { FALSE: 0, TRUE: 1 } },
+      { Name: 'E_RESULT', Enum: { SUCCESS: 0, FAILED: 1 } },
+      { Name: 'E_UNIT_STATE', Enum: { OFFLINE: 0, OPERATIONAL: 2 } },
+      { Name: 'E_FLAG', Enum: { FALSE: 0, TRUE: 1 } },
     ],
     Structs: [
       {
         Name: 'sPOINT',
         Struct: {
-          RangeM: { Type: 'F4', Default: 1.5 },
-          AzimuthDeg: { Type: 'F4' },
+          XM: { Type: 'F4', Default: 1.5 },
+          YM: { Type: 'F4' },
         },
       },
       {
         Name: 'sSTATE',
         Struct: {
-          Element: { Type: 'E_ELEMENT_STATE', Default: 'OPERATIONAL' },
-          Overload: { Type: 'E_BOOL' },
-          Title: { Type: 'CH', MaxCount: 16, Default: 'radar' },
+          Element: { Type: 'E_UNIT_STATE', Default: 'OPERATIONAL' },
+          Busy: { Type: 'E_FLAG' },
+          Title: { Type: 'CH', MaxCount: 16, Default: 'unit' },
           Points: { Type: 'sPOINT', MaxCount: 16, UseStruct: true },
-          Receivers: { Type: 'E_BOOL', MaxCount: 24, Default: 'TRUE' },
+          Channels: { Type: 'E_FLAG', MaxCount: 24, Default: 'TRUE' },
         },
       },
     ],
@@ -40,7 +40,7 @@ const typesFile: SicdSourceFile = {
 const messageFile: SicdSourceFile = {
   name: 'element_msg.json5',
   content: `{
-    Info: { Element: 'SSP', DefId: "Msg", Version: '0.1' },
+    Info: { Element: 'UNIT', DefId: "Msg", Version: '0.1' },
     Includes: [ 'common_types.json5', ],
     Enums: [],
     Structs: [],
@@ -49,25 +49,25 @@ const messageFile: SicdSourceFile = {
         Name: 'Setup',
         Cmd: {},
         CmdRsp: {
-          MessageStatus: { Type: 'E_MESSAGE_STATUS', Default: 'SUCCESS' },
+          Result: { Type: 'E_RESULT', Default: 'SUCCESS' },
         },
       },
       {
-        Name: 'Detailed',
+        Name: 'Summary',
         State: {
-          SspState: { Type: 'sSTATE', UseStruct: true },
+          UnitState: { Type: 'sSTATE', UseStruct: true },
         },
         Retained: ["State"],
       },
       {
-        Name: 'Detailed',
+        Name: 'Summary',
         Status: {
           Count: { Type: 'U4', Default: 7 },
         },
       },
       {
-        Name: 'Polygons',
-        Cmd: { Margin_dB: { Type: 'I1' } },
+        Name: 'Zones',
+        Cmd: { Threshold: { Type: 'I1' } },
         IsDatabaseMsg: true,
       },
     ],
@@ -91,41 +91,41 @@ describe('loadSicdFiles', () => {
 
     expect(warnings).to.deep.eq([])
     expect(messages.map(m => m.topic)).to.deep.eq([
-      'ssp/cmd/setup',
-      'ssp/cmdrsp/setup',
-      'ssp/state/detailed',
-      'ssp/status/detailed',
-      'ssp/cmd/polygons',
+      'unit/cmd/setup',
+      'unit/cmdrsp/setup',
+      'unit/state/summary',
+      'unit/status/summary',
+      'unit/cmd/zones',
     ])
   })
 
   it('keeps the original element, section and name of a message', () => {
-    const message = load(typesFile, messageFile).messages.find(m => m.topic === 'ssp/cmdrsp/setup')!
+    const message = load(typesFile, messageFile).messages.find(m => m.topic === 'unit/cmdrsp/setup')!
 
-    expect(message.element).to.eq('SSP')
+    expect(message.element).to.eq('UNIT')
     expect(message.section).to.eq('CmdRsp')
     expect(message.name).to.eq('Setup')
     expect(message.file).to.eq('element_msg.json5')
   })
 
   it('generates an empty object for sections without fields', () => {
-    expect(payloadOf('ssp/cmd/setup', typesFile, messageFile)).to.deep.eq({})
+    expect(payloadOf('unit/cmd/setup', typesFile, messageFile)).to.deep.eq({})
   })
 
   it('uses enum names and numeric defaults', () => {
-    expect(payloadOf('ssp/cmdrsp/setup', typesFile, messageFile)).to.deep.eq({ MessageStatus: 'SUCCESS' })
-    expect(payloadOf('ssp/status/detailed', typesFile, messageFile)).to.deep.eq({ Count: 7 })
-    expect(payloadOf('ssp/cmd/polygons', typesFile, messageFile)).to.deep.eq({ Margin_dB: 0 })
+    expect(payloadOf('unit/cmdrsp/setup', typesFile, messageFile)).to.deep.eq({ Result: 'SUCCESS' })
+    expect(payloadOf('unit/status/summary', typesFile, messageFile)).to.deep.eq({ Count: 7 })
+    expect(payloadOf('unit/cmd/zones', typesFile, messageFile)).to.deep.eq({ Threshold: 0 })
   })
 
   it('resolves included structs and generates arrays with a single element', () => {
-    expect(payloadOf('ssp/state/detailed', typesFile, messageFile)).to.deep.eq({
-      SspState: {
+    expect(payloadOf('unit/state/summary', typesFile, messageFile)).to.deep.eq({
+      UnitState: {
         Element: 'OPERATIONAL',
-        Overload: 'FALSE',
-        Title: 'radar',
-        Points: [{ RangeM: 1.5, AzimuthDeg: 0 }],
-        Receivers: ['TRUE'],
+        Busy: 'FALSE',
+        Title: 'unit',
+        Points: [{ XM: 1.5, YM: 0 }],
+        Channels: ['TRUE'],
       },
     })
   })
@@ -134,10 +134,10 @@ describe('loadSicdFiles', () => {
     const { messages } = load(typesFile, messageFile)
     const byTopic = (topic: string) => messages.find(m => m.topic === topic)!
 
-    expect(byTopic('ssp/state/detailed').retain).to.eq(true)
-    expect(byTopic('ssp/status/detailed').retain).to.eq(false)
-    expect(byTopic('ssp/cmd/polygons').isDatabaseMsg).to.eq(true)
-    expect(byTopic('ssp/cmd/setup').isDatabaseMsg).to.eq(false)
+    expect(byTopic('unit/state/summary').retain).to.eq(true)
+    expect(byTopic('unit/status/summary').retain).to.eq(false)
+    expect(byTopic('unit/cmd/zones').isDatabaseMsg).to.eq(true)
+    expect(byTopic('unit/cmd/setup').isDatabaseMsg).to.eq(false)
   })
 
   it('resolves includes by file name regardless of path and case', () => {
@@ -156,7 +156,7 @@ describe('loadSicdFiles', () => {
     expect(warnings).to.include(
       "element_msg.json5: include 'common_types.json5' was not found in the SICD folder or could not be parsed"
     )
-    expect(warnings).to.include("element_msg.json5: Setup.CmdRsp.MessageStatus: unknown type 'E_MESSAGE_STATUS'")
+    expect(warnings).to.include("element_msg.json5: Setup.CmdRsp.Result: unknown type 'E_RESULT'")
   })
 
   it('reports invalid enum defaults', () => {
@@ -166,10 +166,8 @@ describe('loadSicdFiles', () => {
     }
     const { warnings } = load(typesFile, invalidDefault)
 
-    expect(warnings).to.deep.eq([
-      "element_msg.json5: Setup.CmdRsp.MessageStatus: default 'GREAT' is not a value of E_MESSAGE_STATUS",
-    ])
-    expect(payloadOf('ssp/cmdrsp/setup', typesFile, invalidDefault)).to.deep.eq({ MessageStatus: 'SUCCESS' })
+    expect(warnings).to.deep.eq(["element_msg.json5: Setup.CmdRsp.Result: default 'GREAT' is not a value of E_RESULT"])
+    expect(payloadOf('unit/cmdrsp/setup', typesFile, invalidDefault)).to.deep.eq({ Result: 'SUCCESS' })
   })
 
   it('reports files that cannot be parsed and continues with the others', () => {
@@ -182,7 +180,7 @@ describe('loadSicdFiles', () => {
   })
 
   it('skips message files without an element name', () => {
-    const noElement = { ...messageFile, content: messageFile.content.replace("Element: 'SSP'", "Element: ''") }
+    const noElement = { ...messageFile, content: messageFile.content.replace("Element: 'UNIT'", "Element: ''") }
     const { messages, warnings } = load(typesFile, noElement)
 
     expect(messages).to.deep.eq([])
@@ -193,14 +191,14 @@ describe('loadSicdFiles', () => {
     const duplicates = {
       ...messageFile,
       content: messageFile.content.replace(
-        "Name: 'Polygons',",
+        "Name: 'Zones',",
         "Name: 'Setup', Event: { Value: { Type: 'U1' } }, Cmd: {}, Comment: 'duplicate',"
       ),
     }
     const { warnings } = load(typesFile, duplicates)
 
     expect(warnings).to.include("element_msg.json5: Setup: unknown section 'Event' ignored")
-    expect(warnings).to.include("element_msg.json5: duplicate topic 'ssp/cmd/setup' ignored")
+    expect(warnings).to.include("element_msg.json5: duplicate topic 'unit/cmd/setup' ignored")
   })
 
   it('treats a MaxCount constant as array length', () => {
@@ -212,11 +210,11 @@ describe('loadSicdFiles', () => {
         .replace("Type: 'sPOINT', MaxCount: 16", "Type: 'sPOINT', MaxCount: 'ONE'")
         .replace('MaxCount: 24', "MaxCount: 'MANY'"),
     }
-    const state = payloadOf('ssp/state/detailed', withConstant, messageFile).SspState
+    const state = payloadOf('unit/state/summary', withConstant, messageFile).UnitState
 
-    expect(state.Title).to.eq('radar')
-    expect(state.Points).to.deep.eq({ RangeM: 1.5, AzimuthDeg: 0 })
-    expect(state.Receivers).to.deep.eq(['TRUE'])
+    expect(state.Title).to.eq('unit')
+    expect(state.Points).to.deep.eq({ XM: 1.5, YM: 0 })
+    expect(state.Channels).to.deep.eq(['TRUE'])
   })
 })
 
@@ -224,10 +222,10 @@ describe('loadSicdFiles definitions', () => {
   it('lists all enums with their values, type and file', () => {
     const { enums } = load(typesFile, messageFile)
 
-    expect(enums.map(e => e.id)).to.deep.eq(['E_MESSAGE_STATUS', 'E_ELEMENT_STATE', 'E_BOOL'])
+    expect(enums.map(e => e.id)).to.deep.eq(['E_RESULT', 'E_UNIT_STATE', 'E_FLAG'])
     expect(enums[1]).to.deep.eq({
-      id: 'E_ELEMENT_STATE',
-      name: 'E_ELEMENT_STATE',
+      id: 'E_UNIT_STATE',
+      name: 'E_UNIT_STATE',
       type: undefined,
       comment: undefined,
       values: [
@@ -243,40 +241,40 @@ describe('loadSicdFiles definitions', () => {
 
     expect(state.files).to.deep.eq(['common_types.json5'])
     expect(state.fields.map(f => [f.name, f.kind, f.ref])).to.deep.eq([
-      ['Element', 'enum', 'E_ELEMENT_STATE'],
-      ['Overload', 'enum', 'E_BOOL'],
+      ['Element', 'enum', 'E_UNIT_STATE'],
+      ['Busy', 'enum', 'E_FLAG'],
       ['Title', 'primitive', undefined],
       ['Points', 'struct', 'sPOINT'],
-      ['Receivers', 'enum', 'E_BOOL'],
+      ['Channels', 'enum', 'E_FLAG'],
     ])
-    expect(state.fields[2]).to.deep.include({ type: 'CH', maxCount: 16, default: 'radar' })
+    expect(state.fields[2]).to.deep.include({ type: 'CH', maxCount: 16, default: 'unit' })
   })
 
   it('generates a payload template for every struct', () => {
     const point = load(typesFile, messageFile).structs.find(s => s.id === 'sPOINT')!
 
-    expect(JSON.parse(point.payload)).to.deep.eq({ RangeM: 1.5, AzimuthDeg: 0 })
+    expect(JSON.parse(point.payload)).to.deep.eq({ XM: 1.5, YM: 0 })
   })
 
   it('keeps min, max and comments of fields', () => {
     const withRange = {
       ...typesFile,
       content: typesFile.content.replace(
-        "RangeM: { Type: 'F4', Default: 1.5 }",
-        "RangeM: { Type: 'F4', Default: 1.5, Min: 0, Max: 100000, Comment: 'Radar relative range' }"
+        "XM: { Type: 'F4', Default: 1.5 }",
+        "XM: { Type: 'F4', Default: 1.5, Min: 0, Max: 100000, Comment: 'Distance along the x axis' }"
       ),
     }
     const point = load(withRange).structs.find(s => s.id === 'sPOINT')!
 
     expect(point.fields[0]).to.deep.eq({
-      name: 'RangeM',
+      name: 'XM',
       type: 'F4',
       kind: 'primitive',
       maxCount: undefined,
       min: 0,
       max: 100000,
       default: 1.5,
-      comment: 'Radar relative range',
+      comment: 'Distance along the x axis',
     })
   })
 
@@ -291,16 +289,16 @@ describe('loadSicdFiles definitions', () => {
   it('tells differing definitions with the same name apart by file', () => {
     const other: SicdSourceFile = {
       name: 'other_types.json5',
-      content: "{ Enums: [{ Name: 'E_BOOL', Type: 'U1', Enum: { NO: 0, YES: 1 } }] }",
+      content: "{ Enums: [{ Name: 'E_FLAG', Type: 'U1', Enum: { NO: 0, YES: 1 } }] }",
     }
     const { enums } = load(typesFile, other)
 
-    expect(enums.filter(e => e.name === 'E_BOOL').map(e => e.id)).to.deep.eq([
-      'E_BOOL (common_types.json5)',
-      'E_BOOL (other_types.json5)',
+    expect(enums.filter(e => e.name === 'E_FLAG').map(e => e.id)).to.deep.eq([
+      'E_FLAG (common_types.json5)',
+      'E_FLAG (other_types.json5)',
     ])
     const state = load(typesFile, other).structs.find(s => s.id === 'sSTATE')!
-    expect(state.fields[1].ref).to.eq('E_BOOL (common_types.json5)')
+    expect(state.fields[1].ref).to.eq('E_FLAG (common_types.json5)')
   })
 
   it('marks field types that can not be resolved', () => {

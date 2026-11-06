@@ -1,3 +1,4 @@
+import * as bdActions from './Bd'
 import * as chartActions from './Charts'
 import * as connectionActions from './Connection'
 import * as connectionManagerActions from './ConnectionManager'
@@ -15,6 +16,7 @@ export {
   chartActions,
   publishActions,
   sicdActions,
+  bdActions,
   updateNotifierActions,
   connectionActions,
   sidebarActions,

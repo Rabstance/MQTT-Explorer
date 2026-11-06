@@ -97,6 +97,8 @@ export interface SicdFieldInfo {
   min?: number
   max?: number
   default?: unknown
+  units?: string
+  scalingFactor?: string
   comment?: string
 }
 

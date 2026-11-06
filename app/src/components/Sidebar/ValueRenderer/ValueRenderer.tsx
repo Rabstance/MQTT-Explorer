@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { connect } from 'react-redux'
-import { Fade } from '@mui/material'
+import { Fade, Typography } from '@mui/material'
 import { Decoder } from '../../../../../backend/src/Model/Decoder'
 import * as q from '../../../../../backend/src/Model'
 import CodeDiff from '../CodeDiff'
@@ -121,6 +121,21 @@ export const ValueRenderer: React.FC<Props> = ({ treeNode, compareWith: compare,
   return (
     <div style={{ padding: '0px 0px 8px 0px', width: '100%' }}>
       {decodedMessage?.decoder === Decoder.SPARKPLUG && 'Decoded SparkplugB'}
+      {decodedMessage?.description && (
+        <Typography variant="caption" color="textSecondary" component="div" id="decoder-description">
+          {decodedMessage.description}
+        </Typography>
+      )}
+      {decodedMessage?.error && (
+        <Typography variant="caption" color="error" component="div" id="decoder-error">
+          {decodedMessage.error}
+        </Typography>
+      )}
+      {decodedMessage?.warnings?.map(warning => (
+        <Typography key={warning} variant="caption" color="warning.main" component="div" className="decoder-warning">
+          {warning}
+        </Typography>
+      ))}
       {renderedValue}
     </div>
   )

@@ -88,7 +88,7 @@ export function TopicTypeButton(props: { node?: q.TreeNode<any> }) {
 
 function DecoderStatus({ node, decoder, format }: { node: q.TreeNode<any>; decoder: MessageDecoder; format: string }) {
   const decoded = useMemo(
-    () => node.message?.payload && decoder.decode(node.message?.payload, format),
+    () => node.message?.payload && decoder.decode(node.message?.payload, format, node.path()),
     [node.message, decoder, format]
   )
 

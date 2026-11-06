@@ -1,4 +1,5 @@
 import { combineReducers } from 'redux'
+import { bdReducer, BdState } from './Bd'
 import { chartsReducer, ChartsState } from './Charts'
 import { connectionManagerReducer, ConnectionManagerState } from './ConnectionManager'
 import { connectionReducer, ConnectionState } from './Connection'
@@ -15,6 +16,7 @@ export interface AppState {
   settings: SettingsState
   publish: PublishState
   sicd: SicdState
+  bd: BdState
   charts: ChartsState
   sidebar: SidebarState
   connection: ConnectionState
@@ -26,6 +28,7 @@ export default combineReducers({
   charts: chartsReducer,
   publish: publishReducer,
   sicd: sicdReducer,
+  bd: bdReducer,
   sidebar: sidebarReducer,
   connection: connectionReducer,
   settings: settingsReducer,

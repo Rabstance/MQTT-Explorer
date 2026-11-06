@@ -72,11 +72,12 @@ app.whenReady().then(() => {
     })
   )
 
-  // Reads all SICD definition files of a folder, Includes are resolved by the renderer
-  backendRpc.on(RpcEvents.readSicdFolder, async ({ folderPath }) => {
+  // Reads all SICD definition files of a folder (not its subfolders), Includes are resolved by the renderer
+  backendRpc.on(RpcEvents.readSicdFolder, async ({ folderPath, extensions = ['.json5'] }) => {
     const entries = await fsPromise.readdir(folderPath, { withFileTypes: true })
+    const hasExtension = (name: string) => extensions.some(extension => name.toLowerCase().endsWith(extension))
     const sicdFiles = entries
-      .filter(entry => entry.isFile() && /\.json5$/i.test(entry.name))
+      .filter(entry => entry.isFile() && hasExtension(entry.name))
       .map(entry => entry.name)
       .sort()
 

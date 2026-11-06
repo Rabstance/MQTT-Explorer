@@ -80,6 +80,8 @@ export interface LlmChatResponse {
 // SICD folder RPC types
 export interface SicdFolderRequest {
   folderPath: string
+  /** File extensions to read, ['.json5'] when not set */
+  extensions?: Array<string>
 }
 
 export interface SicdFolderFile {

@@ -42,6 +42,12 @@ function constraints(field: SicdFieldInfo): string | undefined {
   if (field.default !== undefined) {
     parts.push(`default ${formatDefault(field)}`)
   }
+  if (field.units) {
+    parts.push(`units ${field.units}`)
+  }
+  if (field.scalingFactor) {
+    parts.push(`scaling ${field.scalingFactor}`)
+  }
 
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
@@ -116,7 +122,7 @@ function FieldRow(props: Props & { field: SicdFieldInfo }) {
             </Typography>
           )}
           {field.comment && (
-            <Typography variant="caption" color="textSecondary" component="div">
+            <Typography variant="caption" color="textSecondary" component="div" sx={{ whiteSpace: 'pre-line' }}>
               {field.comment}
             </Typography>
           )}

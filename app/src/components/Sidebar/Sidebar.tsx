@@ -12,6 +12,7 @@ import { AppState } from '../../reducers'
 import DetailsTab from './DetailsTab'
 import PublishTab from './PublishTab'
 import SicdTab from './SicdTab'
+import BdTab from './BdTab'
 
 const throttle = require('lodash.throttle')
 
@@ -72,7 +73,7 @@ function SidebarNew(props: Props) {
     )
   }
 
-  // Desktop: show tabs for Details/Publish/SICD
+  // Desktop: show tabs for Details/Publish/SICD/BD
   return (
     <div id="Sidebar" className={classes.root}>
       <Box className={classes.tabsContainer}>
@@ -87,6 +88,7 @@ function SidebarNew(props: Props) {
           <Tab label="Details" className={classes.tab} />
           <Tab label="Publish" className={classes.tab} />
           <Tab label="SICD" className={classes.tab} id="sidebar-tab-sicd" />
+          <Tab label="BD" className={classes.tab} id="sidebar-tab-bd" />
         </Tabs>
       </Box>
 
@@ -99,6 +101,9 @@ function SidebarNew(props: Props) {
         </Box>
         <Box sx={{ display: tabValue === 2 ? 'block' : 'none' }}>
           <SicdTab onLoadedIntoPublish={showPublishTab} />
+        </Box>
+        <Box sx={{ display: tabValue === 3 ? 'block' : 'none' }}>
+          <BdTab />
         </Box>
       </Box>
     </div>

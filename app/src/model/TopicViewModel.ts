@@ -28,6 +28,9 @@ export class TopicViewModel implements Destroyable {
 
   private _decoder?: TopicDecoder
 
+  /** The decoder was chosen by the user and is kept when the available decoders change */
+  private decoderChosen = false
+
   /**
    * Reference counter for useViewModel hook
    */
@@ -49,8 +52,20 @@ export class TopicViewModel implements Destroyable {
 
   set decoder(override: TopicDecoder | undefined) {
     this._decoder = override
+    this.decoderChosen = true
 
     this.onDecoderChange.dispatch(override)
+  }
+
+  /**
+   * Called when the available decoders or their results change.
+   * A decoder found automatically is looked up again, a chosen decoder is kept but decodes again.
+   */
+  public refreshDecoder() {
+    // A new object makes users of the decoder decode again, the decoder may decode differently now
+    const decoder = this.decoderChosen ? this._decoder : this.owner && findDecoder(this.owner)
+    this._decoder = decoder && { ...decoder }
+    this.onDecoderChange.dispatch(this._decoder)
   }
 
   public constructor(treeNode: q.TreeNode<TopicViewModel>) {

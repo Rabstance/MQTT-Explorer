@@ -9,5 +9,8 @@ export interface MessageDecoder<T = string> {
   formats: T[]
   canDecodeTopic?(topic: string): boolean
   canDecodeData?(data: Base64Message): boolean
-  decode(input: Base64Message, format: T | string | undefined): DecoderEnvelope
+  /**
+   * @param topic of the message, decoders like the SICD BD decoder choose the message definition by topic
+   */
+  decode(input: Base64Message, format: T | string | undefined, topic?: string): DecoderEnvelope
 }
